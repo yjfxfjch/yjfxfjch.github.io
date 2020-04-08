@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/avatar.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon32.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon16.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.yjf.me","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="视频编解码分为硬件加速以及非硬件加速。硬件加速是指通过显卡，FPGA等硬件进行视频编解码，由于硬件有专门优化，所以性能高，能耗低，非硬件加速编解码是指通过CPU进行视频编解码，性能就没那么高（虽然有相关CPU指令优化），由于视频编解码计算量很大，所以能耗也很高。在PC平台上主流的硬件加速编解码有Intel集成显卡，Nvidia显卡。Nvidia平台的编解码用的比较多，网上资料也多，接口也很简单，但">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Intel平台硬件加速视频编解码开发">
+<meta property="og:url" content="https://www.yjf.me/intel-gpu-hw-video-codec-develop.html">
+<meta property="og:site_name" content="YJF&#39;s Blog">
+<meta property="og:description" content="视频编解码分为硬件加速以及非硬件加速。硬件加速是指通过显卡，FPGA等硬件进行视频编解码，由于硬件有专门优化，所以性能高，能耗低，非硬件加速编解码是指通过CPU进行视频编解码，性能就没那么高（虽然有相关CPU指令优化），由于视频编解码计算量很大，所以能耗也很高。在PC平台上主流的硬件加速编解码有Intel集成显卡，Nvidia显卡。Nvidia平台的编解码用的比较多，网上资料也多，接口也很简单，但">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20191120230537.png">
+<meta property="og:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/intelmediastack.png">
+<meta property="og:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/msdk-stack-3.png">
+<meta property="article:published_time" content="2019-11-21T06:41:17.000Z">
+<meta property="article:modified_time" content="2020-04-08T12:03:49.848Z">
+<meta property="article:author" content="Jeff Young">
+<meta property="article:tag" content="编解码">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20191120230537.png">
+
+<link rel="canonical" href="https://www.yjf.me/intel-gpu-hw-video-codec-develop.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Intel平台硬件加速视频编解码开发 | YJF's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">YJF's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">代码为剑，如痴如醉</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>站点地图</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://www.yjf.me/intel-gpu-hw-video-codec-develop.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Jeff Young">
+      <meta itemprop="description" content="此人很懒，什么都没留下">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="YJF's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Intel平台硬件加速视频编解码开发
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-11-21 14:41:17" itemprop="dateCreated datePublished" datetime="2019-11-21T14:41:17+08:00">2019-11-21</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-04-08 20:03:49" itemprop="dateModified" datetime="2020-04-08T20:03:49+08:00">2020-04-08</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E9%9F%B3%E8%A7%86%E9%A2%91/" itemprop="url" rel="index"><span itemprop="name">音视频</span></a>
+                </span>
+            </span>
+
+          
+            <span id="/intel-gpu-hw-video-codec-develop.html" class="post-meta-item leancloud_visitors" data-flag-title="Intel平台硬件加速视频编解码开发" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/intel-gpu-hw-video-codec-develop.html#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/intel-gpu-hw-video-codec-develop.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>视频编解码分为<strong>硬件加速</strong>以及<strong>非硬件加速</strong>。硬件加速是指通过显卡，FPGA等硬件进行视频编解码，由于硬件有专门优化，所以性能高，能耗低，非硬件加速编解码是指通过CPU进行视频编解码，性能就没那么高（虽然有相关CPU指令优化），由于视频编解码计算量很大，所以能耗也很高。在PC平台上主流的硬件加速编解码有Intel集成显卡，Nvidia显卡。Nvidia平台的编解码用的比较多，网上资料也多，接口也很简单，但是相对成本会高些。Intel集显平台视频编解码成本就低很多了，只要是最近几年带集显的CPU基本都支持硬件加速编解码，但是开发复杂度相对高些，网上资料也少，主要是用的人少吧。自己做过Intel集显平台在Linux以及Windows下的编解码开发，也踩过很多坑，故特地写此文章，介绍下Intel集显平台的视频编解码开发，希望更多的人能加入Intel平台视频编解码，降低成本开销。</p>
+<a id="more"></a>
+<h2 id="Quick-Sync-Video"><a href="#Quick-Sync-Video" class="headerlink" title="Quick Sync Video"></a>Quick Sync Video</h2><p><strong>Intel Quick Sync Video</strong>(QSV)是Intel GPU上跟视频处理有关的一系列硬件特性的称呼。如下是Intel官网某款CPU带的显卡规格:<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20191120230537.png" alt="alt qsv"><br>可以看到该显卡支持Intel Quick Sync Video。点击Quick Sync Video旁的Info提示：</p>
+<blockquote>
+<p>英特尔® Quick Sync Video 技术可以快速转换便携式多媒体播放器的视频，还能提供在线共享、视频编辑及视频制作功能。<br>所以看到CPU带的集成显卡支持Quick Sync Video就表示支持硬件加速的视频编解码。</p>
+</blockquote>
+<h3 id="硬件支持"><a href="#硬件支持" class="headerlink" title="硬件支持"></a>硬件支持</h3><p>看下Intel不同代处理器对视频编码格式的支持情况。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">Platform Name Graphics	  Adds support for…</span><br><span class="line">Ironlake	  gen5	       MPEG-2, H.264 decode.</span><br><span class="line">Sandy Bridge  gen6	       VC-1 decode; H.264 encode.</span><br><span class="line">Ivy Bridge	  gen7	       JPEG decode; MPEG-2 encode.</span><br><span class="line">Bay Trail     gen7	        –</span><br><span class="line">Haswell	      gen7.5	    –</span><br><span class="line">Broadwell	  gen8	       VP8 decode.</span><br><span class="line">Braswell	  gen8	       H.265 decode; JPEG, VP8 encode.</span><br><span class="line">Skylake	      gen9	       H.265 encode.</span><br><span class="line">Apollo Lake	  gen9	       VP9, H.265 Main10 decode.</span><br><span class="line">Kaby Lake	  gen9.5	   VP9 profile 2 decode; VP9, H.265 Main10 encode.</span><br><span class="line">Coffee Lake	  gen9.5     	–</span><br><span class="line">Gemini Lake	  gen9.5	    –</span><br><span class="line">Cannonlake	  gen10	        –</span><br></pre></td></tr></table></figure>
+<p>可以看到从第五代开始就支持硬件加速视频编解码了，越往后支持的视频编码格式以及特性也逐渐增多。</p>
+<h3 id="API支持"><a href="#API支持" class="headerlink" title="API支持"></a>API支持</h3><p>在不同平台上可通过不同API使用Intel GPU的硬件加速能力。目前主要由两套API：VAAPI以及libmfx。</p>
+<ul>
+<li>VAAPI (视频加速API，Video Acceleration API)包含一套开源的库(LibVA) 以及API规范, 用于硬件加速下的视频编解码以及处理，只有Linux上的驱动提供支持。</li>
+<li>libmfx。Intel Media SDK中的API规范，支持视频编解码以及媒体处理。支持Windows以及Linux。</li>
+<li>除了Intel自己的API，在Windows系统上还有其他API可使用Intel GPU的硬件加速能力，这些API属于Windows标准，由Intel显卡驱动实现。</li>
+<li>DXVA2 / D3D11VA。标准Windows API，支持通过Intel显卡驱动进行视频编解码，FFmpeg有对应实现。</li>
+<li>Media Foundation。标准Windows API，支持通过Intel显卡驱动进行视频编解码，FFmpeg不支持该API。</li>
+</ul>
+<h2 id="Intel媒体栈"><a href="#Intel媒体栈" class="headerlink" title="Intel媒体栈"></a>Intel媒体栈</h2><p>基于Intel显卡技术，Intel媒体栈提供了一系列多媒体解决方案。例如：Intel Media driver（也称作iHD driver），Intel Media SDK, LibVA等。<br>下图为Intel媒体栈的各个组件示意图：<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/intelmediastack.png" alt="mediasync mediasync"><br>后面说下跟我们视频编解码关系比较大的。</p>
+<h3 id="VAAPI驱动"><a href="#VAAPI驱动" class="headerlink" title="VAAPI驱动"></a>VAAPI驱动</h3><p>VAAPI驱动属于用户态驱动，用于支持LibVA，底层是i965/1915驱动。Intel提供了两种开源的VAAPI驱动：<a href="https://github.com/intel/intel-vaapi-driver" target="_blank" rel="noopener">intel-vaapi-driver</a>以及<a href="https://github.com/intel/media-driver/" target="_blank" rel="noopener">intel-media-driver</a>，intel-media-driver较intel-vaapi-driver新，维护更积极，所以目前更推荐使用intel-media-driver。</p>
+<h3 id="开发库以及SDK"><a href="#开发库以及SDK" class="headerlink" title="开发库以及SDK"></a>开发库以及SDK</h3><p><strong>LibVA</strong>：VAAPI的开源库实现<br><strong>LibVA-utils</strong>：VAAPI相关的一系列工具以及示例<br><strong>Intel Media SDK</strong>：提供一套用于视频编解码以及处理（VPP）的API：libmfx，支持Linux/Windows，具体介绍可查看：<a href="http://mediasdk.intel.com/" target="_blank" rel="noopener">Intel Media SDK</a>。</p>
+<h2 id="开发环境搭建"><a href="#开发环境搭建" class="headerlink" title="开发环境搭建"></a>开发环境搭建</h2><p>前面简单介绍了VAAPI以及Intel Media SDK，下面说下开发环境搭建。</p>
+<h3 id="Windows系统"><a href="#Windows系统" class="headerlink" title="Windows系统"></a>Windows系统</h3><p>只有Intel Media SDK支持。确保安装了<a href="https://downloadcenter.intel.com/product/80939/Graphics-Drivers" target="_blank" rel="noopener">集成显卡驱动</a>，然后需要到<a href="https://software.intel.com/en-us/media-sdk/choose-download/client" target="_blank" rel="noopener">Intel官网</a>下载Intel Media SDK安装包。具体搭建请参考：</p>
+<blockquote>
+<p>Intel Media SDK环境搭建：<a href="https://blog.csdn.net/y601500359/article/details/87169715" target="_blank" rel="noopener">https://blog.csdn.net/y601500359/article/details/87169715</a></p>
+</blockquote>
+<h3 id="Linux系统"><a href="#Linux系统" class="headerlink" title="Linux系统"></a>Linux系统</h3><p>包含Ubuntu以及CentOS。需要安装驱动以及相应的库。</p>
+<h4 id="FFmpeg-VAAPI-QSV开发环境搭建"><a href="#FFmpeg-VAAPI-QSV开发环境搭建" class="headerlink" title="FFmpeg VAAPI/QSV开发环境搭建"></a>FFmpeg VAAPI/QSV开发环境搭建</h4><p>对于VAAPI以及Intel Media SDK，如果使用原生API开发的话比较麻烦，好在FFmpeg提供了对应的插件。我们可以通过FFmpeg间接使用这两套API。在FFmpeg中VAAPI还是叫做VAAPI，但是Intel Media SDK却叫做QSV（一脸懵逼）。</p>
+<blockquote>
+<p>FFmpeg-vaapi插件:基于VAAPI接口<br>FFmpeg-qsv插件：基于Intel Media SDK</p>
+</blockquote>
+<p>FFmpeg VAAPI/QSV开发环境搭建我就不做搬运工了，大家可参考官网教程。</p>
+<blockquote>
+<p>Linux FFmpeg VAAPI/QSV Installation Environment：<a href="https://01.org/linuxmedia/quickstart/&gt;" target="_blank" rel="noopener">https://01.org/linuxmedia/quickstart/&gt;</a> ffmpeg-vaapi-qsv-installation-environment</p>
+</blockquote>
+<h4 id="不使用FFmpeg的开发环境搭建"><a href="#不使用FFmpeg的开发环境搭建" class="headerlink" title="不使用FFmpeg的开发环境搭建"></a>不使用FFmpeg的开发环境搭建</h4><p>有些人可能不想使用FFmpeg，对于Intel Media SDK还好，但是VAAPI就不行了，接口设计很底层，且复杂，所以对于想使用VAAPI的话，还是老老实实使用FFmpeg吧，时间就是金钱。</p>
+<p>对于Intel Media SDK，除了可以编解码，还有可以进行视频的其他操作。2017年开始，Linux上才有开源的Intel Media SDK实现,之前Linux上的对应方案叫做Intel® Media Server Studio，现在已经不可用了。</p>
+<p>Linux上的Intel Media SDK底层基于Libva。编译Intel Media SDK也是要安装VAAPI驱动等Intel媒体栈软件。</p>
+<p><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/msdk-stack-3.png" alt="media medis"></p>
+<p>所以开发环境搭建还是参考上一小节的内容，只是可以选择不编译安装FFmpeg。</p>
+<h3 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h3><p>安装的LibVA-utils包含一个<code>vainfo</code>工具，前面的开发环境搭建后，可以通过<code>vainfo</code>检查VAAPI的安装设置。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">[root@localhost apps]# vainfo</span><br><span class="line">libva info: VA-API version 1.6.0</span><br><span class="line">libva info: va_getDriverName() returns 0</span><br><span class="line">libva info: User requested driver &#39;iHD&#39;</span><br><span class="line">libva info: Trying to open &#x2F;usr&#x2F;lib&#x2F;dri&#x2F;iHD_drv_video.so</span><br><span class="line">libva info: Found init function __vaDriverInit_1_5</span><br><span class="line">libva info: va_openDriver() returns 0</span><br><span class="line">vainfo: VA-API version: 1.6 (libva 2.5.0)</span><br><span class="line">vainfo: Driver version: Intel iHD driver - 1.0.0</span><br><span class="line">vainfo: Supported profile and entrypoints</span><br><span class="line">      VAProfileNone                   :	VAEntrypointVideoProc</span><br><span class="line">      VAProfileNone                   :	VAEntrypointStats</span><br><span class="line">      VAProfileMPEG2Simple            :	VAEntrypointVLD</span><br><span class="line">      VAProfileMPEG2Simple            :	VAEntrypointEncSlice</span><br><span class="line">      VAProfileMPEG2Main              :	VAEntrypointVLD</span><br><span class="line">      VAProfileMPEG2Main              :	VAEntrypointEncSlice</span><br><span class="line">      VAProfileH264Main               :	VAEntrypointVLD</span><br><span class="line">      VAProfileH264Main               :	VAEntrypointEncSlice</span><br><span class="line">      VAProfileH264Main               :	VAEntrypointFEI</span><br><span class="line">      VAProfileH264Main               :	VAEntrypointEncSliceLP</span><br><span class="line">      VAProfileH264High               :	VAEntrypointVLD</span><br><span class="line">      VAProfileH264High               :	VAEntrypointEncSlice</span><br><span class="line">      VAProfileH264High               :	VAEntrypointFEI</span><br><span class="line">      VAProfileH264High               :	VAEntrypointEncSliceLP</span><br><span class="line">      VAProfileVC1Simple              :	VAEntrypointVLD</span><br><span class="line">      VAProfileVC1Main                :	VAEntrypointVLD</span><br><span class="line">      VAProfileVC1Advanced            :	VAEntrypointVLD</span><br><span class="line">      VAProfileJPEGBaseline           :	VAEntrypointVLD</span><br><span class="line">      VAProfileJPEGBaseline           :	VAEntrypointEncPicture</span><br><span class="line">      VAProfileH264ConstrainedBaseline:	VAEntrypointVLD</span><br><span class="line">      VAProfileH264ConstrainedBaseline:	VAEntrypointEncSlice</span><br><span class="line">      VAProfileH264ConstrainedBaseline:	VAEntrypointFEI</span><br><span class="line">      VAProfileH264ConstrainedBaseline:	VAEntrypointEncSliceLP</span><br><span class="line">      VAProfileVP8Version0_3          :	VAEntrypointVLD</span><br><span class="line">      VAProfileVP8Version0_3          :	VAEntrypointEncSlice</span><br><span class="line">      VAProfileHEVCMain               :	VAEntrypointVLD</span><br><span class="line">      VAProfileHEVCMain               :	VAEntrypointEncSlice</span><br><span class="line">      VAProfileHEVCMain               :	VAEntrypointFEI</span><br><span class="line">      VAProfileHEVCMain10             :	VAEntrypointVLD</span><br><span class="line">      VAProfileHEVCMain10             :	VAEntrypointEncSlice</span><br><span class="line">      VAProfileVP9Profile0            :	VAEntrypointVLD</span><br><span class="line">      VAProfileVP9Profile2            :	VAEntrypointVLD</span><br></pre></td></tr></table></figure>
+
+<p> 正常的输出类似上面，我们用到的是Intel iHD driver（即Intel Media driver），这个在设置：<br><code>#export LIBVA_DRIVER_NAME=iHD</code>时指定，设置iHD驱动在一些情况下能获得更高的编解码性能。VAEntrypointVLD 指的是显卡能够解码这个格式，<code>VAEntrypointEncSlice</code> 指的是显卡可以编码这个格式。</p>
+<p>如果运行vainfo出现如下错误：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">libva info: va_openDriver() returns -1</span><br><span class="line">vaInitialize failed with error code -1 (unknown libva error),exit</span><br></pre></td></tr></table></figure>
+
+<p>说明驱动没设置正确，确保驱动都正常编译到指定目录，且驱动名称及路径：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#export LIBVA_DRIVER_NAME&#x3D;iHD</span><br><span class="line">#export LIBVA_DRIVERS_PATH&#x3D;$ROOT_INSTALL_DIR&#x2F;lib&#x2F;dri</span><br></pre></td></tr></table></figure>
+
+<p>设置正确。</p>
+<h2 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码"></a>示例代码</h2><p>Intel Media SDK：<a href="https://github.com/Intel-Media-SDK/MediaSDK/tree/master/samples" target="_blank" rel="noopener">https://github.com/Intel-Media-SDK/MediaSDK/tree/master/samples</a></p>
+<p>ffmpeg-VAAPI:FFmpeg源码目录doc\examples下的vaapi_encode.cpp与vaapi_transcode.c</p>
+<blockquote>
+<p>1）示例代码中，<code>avcodec_find_encoder_by_name</code>输入参数得是FFmpeg注册的vaapi编码器名称，例如h264的vaapi编码器是：<code>h264_vaapi</code>，可通过<code>ffmpeg -codecs | grep vaapi</code>命令查询；<br>2）<code>av_hwdevice_ctx_create</code>输入的设备名是<code>/dev/dri/renderD128</code>这样的形式，可通过<code>ls /dev/dri</code>查询，这里的示例<code>/dev/dri/renderD128</code>表示Intel集显设备；<br>3）VAAPI编码时，输入的YUV格式必须是NV12，其他格式YUV得转为NV12格式。vaapi_encode.c有个<code>AVFrame(sw_frame)</code>，用于存放我们输入的YUV数据，该<code>AVFrame</code>的<code>data[0]</code>用于存放Y数据，<code>data[1]</code>存放UV数据，由于输入格式是NV12，所以<code>data[1]</code>中UV数据的内存布局为：<code>UVUVUVUV···UVUV</code>。</p>
+</blockquote>
+<p>FFmpeg-QSV：FFmpeg源码目录doc\examples下的qsvdec.c。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p>[1] Linux FFmpeg VAAPI/QSV Installation Environment.<a href="https://01.org/zh/linuxmedia/quickstart/ffmpeg-vaapi-qsv-installation-environment?langredirect=1" target="_blank" rel="noopener">https://01.org/zh/linuxmedia/quickstart/ffmpeg-vaapi-qsv-installation-environment?langredirect=1</a>.<br>[2] Intel media for linux.<a href="https://01.org/zh/intel-media-for-linux?langredirect=1" target="_blank" rel="noopener">https://01.org/zh/intel-media-for-linux?langredirect=1</a>.<br>[3]Linux media.<a href="https://01.org/zh/linuxmedia?langredirect=1" target="_blank" rel="noopener">https://01.org/zh/linuxmedia?langredirect=1</a>.</p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Jeff Young
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://www.yjf.me/intel-gpu-hw-video-codec-develop.html" title="Intel平台硬件加速视频编解码开发">https://www.yjf.me/intel-gpu-hw-video-codec-develop.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E7%BC%96%E8%A7%A3%E7%A0%81/" rel="tag"># 编解码</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/webrtc-build-vs2017.html" rel="prev" title="Windows平台WebRTC编译-VS2017">
+      <i class="fa fa-chevron-left"></i> Windows平台WebRTC编译-VS2017
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Quick-Sync-Video"><span class="nav-number">1.</span> <span class="nav-text">Quick Sync Video</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#硬件支持"><span class="nav-number">1.1.</span> <span class="nav-text">硬件支持</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#API支持"><span class="nav-number">1.2.</span> <span class="nav-text">API支持</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Intel媒体栈"><span class="nav-number">2.</span> <span class="nav-text">Intel媒体栈</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#VAAPI驱动"><span class="nav-number">2.1.</span> <span class="nav-text">VAAPI驱动</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#开发库以及SDK"><span class="nav-number">2.2.</span> <span class="nav-text">开发库以及SDK</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#开发环境搭建"><span class="nav-number">3.</span> <span class="nav-text">开发环境搭建</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Windows系统"><span class="nav-number">3.1.</span> <span class="nav-text">Windows系统</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Linux系统"><span class="nav-number">3.2.</span> <span class="nav-text">Linux系统</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#FFmpeg-VAAPI-QSV开发环境搭建"><span class="nav-number">3.2.1.</span> <span class="nav-text">FFmpeg VAAPI&#x2F;QSV开发环境搭建</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#不使用FFmpeg的开发环境搭建"><span class="nav-number">3.2.2.</span> <span class="nav-text">不使用FFmpeg的开发环境搭建</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#注意事项"><span class="nav-number">3.3.</span> <span class="nav-text">注意事项</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#示例代码"><span class="nav-number">4.</span> <span class="nav-text">示例代码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考"><span class="nav-number">5.</span> <span class="nav-text">参考</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Jeff Young"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Jeff Young</p>
+  <div class="site-description" itemprop="description">此人很懒，什么都没留下</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">2</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:yjfxfjch@gmail.com" title="E-Mail → mailto:yjfxfjch@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Jeff Young</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+<script>
+  (function() {
+    function leancloudSelector(url) {
+      url = encodeURI(url);
+      return document.getElementById(url).querySelector('.leancloud-visitors-count');
+    }
+
+    function addCount(Counter) {
+      var visitors = document.querySelector('.leancloud_visitors');
+      var url = decodeURI(visitors.id);
+      var title = visitors.dataset.flagTitle;
+
+      Counter('get', '/classes/Counter?where=' + encodeURIComponent(JSON.stringify({ url })))
+        .then(response => response.json())
+        .then(({ results }) => {
+          if (results.length > 0) {
+            var counter = results[0];
+            leancloudSelector(url).innerText = counter.time + 1;
+            Counter('put', '/classes/Counter/' + counter.objectId, { time: { '__op': 'Increment', 'amount': 1 } })
+              .catch(error => {
+                console.error('Failed to save visitor count', error);
+              });
+          } else {
+              Counter('post', '/classes/Counter', { title, url, time: 1 })
+                .then(response => response.json())
+                .then(() => {
+                  leancloudSelector(url).innerText = 1;
+                })
+                .catch(error => {
+                  console.error('Failed to create', error);
+                });
+          }
+        })
+        .catch(error => {
+          console.error('LeanCloud Counter Error', error);
+        });
+    }
+
+    function showTime(Counter) {
+      var visitors = document.querySelectorAll('.leancloud_visitors');
+      var entries = [...visitors].map(element => {
+        return decodeURI(element.id);
+      });
+
+      Counter('get', '/classes/Counter?where=' + encodeURIComponent(JSON.stringify({ url: { '$in': entries } })))
+        .then(response => response.json())
+        .then(({ results }) => {
+          for (let url of entries) {
+            let target = results.find(item => item.url === url);
+            leancloudSelector(url).innerText = target ? target.time : 0;
+          }
+        })
+        .catch(error => {
+          console.error('LeanCloud Counter Error', error);
+        });
+    }
+
+    let { app_id, app_key, server_url } = {"enable":true,"app_id":"iHJhkdJSqewwu7pvVdXRiKJi-gzGzoHsz","app_key":"kXvE9J2FELbqkz5QUEWfGtwP","server_url":null,"security":false};
+    function fetchData(api_server) {
+      var Counter = (method, url, data) => {
+        return fetch(`${api_server}/1.1${url}`, {
+          method,
+          headers: {
+            'X-LC-Id'     : app_id,
+            'X-LC-Key'    : app_key,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data)
+        });
+      };
+      if (CONFIG.page.isPost) {
+        if (CONFIG.hostname !== location.hostname) return;
+        addCount(Counter);
+      } else if (document.querySelectorAll('.post-title-link').length >= 1) {
+        showTime(Counter);
+      }
+    }
+
+    let api_server = app_id.slice(-9) !== '-MdYXbMMI' ? server_url : `https://${app_id.slice(0, 8).toLowerCase()}.api.lncldglobal.com`;
+
+    if (api_server) {
+      fetchData(api_server);
+    } else {
+      fetch('https://app-router.leancloud.cn/2/route?appId=' + app_id)
+        .then(response => response.json())
+        .then(({ api_server }) => {
+          fetchData('https://' + api_server);
+        });
+    }
+  })();
+</script>
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : true,
+      notify     : false,
+      appId      : 'iHJhkdJSqewwu7pvVdXRiKJi-gzGzoHsz',
+      appKey     : 'kXvE9J2FELbqkz5QUEWfGtwP',
+      placeholder: "Just go go",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : false,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
