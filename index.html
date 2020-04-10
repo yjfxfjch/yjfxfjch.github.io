@@ -216,7 +216,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020-04-10 21:50:22" itemprop="dateModified" datetime="2020-04-10T21:50:22+08:00">2020-04-10</time>
+                <time title="修改时间：2020-04-10 21:51:47" itemprop="dateModified" datetime="2020-04-10T21:51:47+08:00">2020-04-10</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -263,79 +263,14 @@
           <blockquote>
 <p>前面文章<a href="https://www.yjf.me/webrtc-research-interarrival.html">WebRTC研究：包组时间差计算-InterArrival</a>讲到了相关包组时间差计算，输出包组发送时间差，到达时间差等参数。本篇文章主要介绍下这些参数在判断网络拥塞情况方面的应用。</p>
 </blockquote>
-<h2 id="到达时间模型"><a href="#到达时间模型" class="headerlink" title="到达时间模型"></a>到达时间模型</h2><p>在WebRTC研究：包组时间差计算-InterArrival说到了到达时间模型，主要包含几个包组时间差计算的概念：</p>
-<ul>
-<li>到达时间差：t(i) - t(i-1)</li>
-<li>发送时间差：T(i) - T(i-1)</li>
-<li>延迟变化：d(i) = t(i) - t(i-1) - (T(i) - T(i-1))</li>
-</ul>
-<p>这个延迟变化用于评估延迟增长趋势，判断网络拥塞状况。在[1]中，这个延迟变化叫做单向延迟梯度（one way delay gradient）。那这个延迟梯度为什么可以判断网络拥塞情况呢？</p>
-<h3 id="延迟梯度计算"><a href="#延迟梯度计算" class="headerlink" title="延迟梯度计算"></a>延迟梯度计算</h3><p>首先我们通过一张图看下延迟梯度的计算：<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/deltatime.png" alt="trendline"></p>
-<p>延迟梯度：<br><code>d(i) = t(i) - t(i-1) - (T(i) - T(i-1))</code></p>
-<h3 id="判断依据"><a href="#判断依据" class="headerlink" title="判断依据"></a>判断依据</h3><p>网络无拥塞，正常情况下：<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/201911261.png" alt="trendline"></p>
-<p>网络拥塞情况下：<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/201911262.png" alt="trendline"></p>
-<p>第一张图是没有任何拥塞下的网络传输，延迟梯度：<code>t2 - t1-(T2 - T1) = 0</code>。第二张图是存在拥塞时的网络传输，当包在t2时刻到达时，因为网络发生拥塞，不能一下子处理这么多资源，经过router节点时经历排队等待，导致到达时间比原本要晚，延迟梯度:<code>t2 - t1-(T2 - T1) &gt; 0</code>，表示当前网络正处在拥塞状态。</p>
-<h2 id="线性回归"><a href="#线性回归" class="headerlink" title="线性回归"></a>线性回归</h2><p>WebRTC用到了线性回归这个数学方法进行延迟梯度趋势预测。通过最小二乘法求得拟合直线斜率，根据斜率判断增长趋势。<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/2019112701.png" alt="trendline"></p>
-<p>对于一堆样本点（x,y），拟合直线方程y=bx+a的斜率b按如下公式计算：<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20191127222320.png" alt="trendline"></p>
-<h2 id="网络状态"><a href="#网络状态" class="headerlink" title="网络状态"></a>网络状态</h2><p>在WebRTC中，定义了三种网络状态：<strong>normal</strong>，<strong>overuse</strong>，<strong>underuse</strong>，用于表示当前带宽的使用情况，具体含义跟单词本身含义一样。</p>
-<p>例如如果是overuse状态，表示带宽使用过载了，从而判断网络发生拥塞，如果是underuse状态，表示当前带宽未充分利用。后面会介绍如何根据延迟梯度增长趋势得到当前的网络状态。</p>
-<h2 id="源码导读"><a href="#源码导读" class="headerlink" title="源码导读"></a>源码导读</h2><p>相关源码位于src\modules\congestion_controller\goog_cc\trendline_estimator.cc中，主要由<code>TrendlineEstimator</code>类实现。主要接口就一个：<code>UpdateTrendline</code>。传入包组时间差，时间，包组大小等参数，判断当前网络状态。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">void UpdateTrendline(double recv_delta_ms,</span><br><span class="line">                     double send_delta_ms,</span><br><span class="line">                     int64_t send_time_ms,</span><br><span class="line">                     int64_t arrival_time_ms,</span><br><span class="line">                     size_t packet_size);</span><br></pre></td></tr></table></figure>
-
-<p>说下输入的各个参数的含义：</p>
-<ul>
-<li><code>recv_delta_ms</code>:包组接受时间差</li>
-<li><code>send_delta_ms</code>:包组发送时间差</li>
-<li><code>send_time_ms</code>:包组发送时间</li>
-<li><code>arrival_time_ms</code>:包到达时间</li>
-<li><code>packet_size</code>:包组大小<br>内部相关函数调用如下：<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">TrendlineEstimator::UpdateTrendline</span><br><span class="line">                ↓</span><br><span class="line">LinearFitSlope</span><br><span class="line">                ↓</span><br><span class="line">TrendlineEstimator::Detect</span><br><span class="line">                ↓</span><br><span class="line">TrendlineEstimator::UpdateThreshold</span><br></pre></td></tr></table></figure>
-
-</li>
-</ul>
-<p>下面结合代码说下<code>UpdateTrendline</code>函数内部计算过程。<br>1）计算延迟变化累积值：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 延迟变化：接收时间 - 发送时间</span><br><span class="line">const double delta_ms &#x3D; recv_delta_ms - send_delta_ms;</span><br><span class="line">++num_of_deltas_;</span><br><span class="line">num_of_deltas_ &#x3D; std::min(num_of_deltas_, kDeltaCounterMax);</span><br><span class="line">if (first_arrival_time_ms_ &#x3D;&#x3D; -1)</span><br><span class="line">  first_arrival_time_ms_ &#x3D; arrival_time_ms;</span><br><span class="line">&#x2F;&#x2F; 累加延迟变化</span><br><span class="line">accumulated_delay_ +&#x3D; delta_ms;</span><br></pre></td></tr></table></figure>
-
-<p>2）根据1）中的延迟累积值计算得到平滑延迟：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">smoothed_delay_ &#x3D; smoothing_coef_ * smoothed_delay_ +</span><br><span class="line">                  (1 - smoothing_coef_) * accumulated_delay_;</span><br></pre></td></tr></table></figure>
-<p>3）将从第一个包发送到当前包组到达的经历时间，平滑延迟值存到双端队列<code>delay_hist_</code>中：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">delay_hist_.push_back(std::make_pair(</span><br><span class="line">    static_cast&lt;double&gt;(arrival_time_ms - first_arrival_time_ms_),</span><br><span class="line">    smoothed_delay_));</span><br></pre></td></tr></table></figure>
-
-<p>4）当队列<code>delay_hist_</code>大小等于设定的窗口大小时，开始进行延迟变化趋势计算，得到直线斜率:</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">if (delay_hist_.size() &#x3D;&#x3D; window_size_) &#123;</span><br><span class="line">  &#x2F;&#x2F; 0 &lt; trend &lt; 1   -&gt;  延迟梯度增加</span><br><span class="line">  &#x2F;&#x2F;   trend &#x3D;&#x3D; 0    -&gt;  延迟梯度不变</span><br><span class="line">  &#x2F;&#x2F;   trend &lt; 0     -&gt;  延迟梯度减小</span><br><span class="line">  trend &#x3D; LinearFitSlope(delay_hist_).value_or(trend);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>5）通过计算计算得到的延迟变化趋势直线斜率以及发送时间差，到达时间判断网络状态：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Detect(trend, send_delta_ms, arrival_time_ms);</span><br></pre></td></tr></table></figure>
-
-<h3 id="LinearFitSlope函数"><a href="#LinearFitSlope函数" class="headerlink" title="LinearFitSlope函数"></a>LinearFitSlope函数</h3><p>使用最小二乘法求解线性回归，得到延迟变化增长趋势的拟合直线斜率。</p>
-<p>看下内部代码实现：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">absl::optional&lt;double&gt; LinearFitSlope(</span><br><span class="line">    const std::deque&lt;std::pair&lt;double, double&gt;&gt;&amp; points) &#123;</span><br><span class="line">  RTC_DCHECK(points.size() &gt;&#x3D; 2);</span><br><span class="line">  &#x2F;&#x2F; 所有节点（x,y），x，y值分别求和</span><br><span class="line">  double sum_x &#x3D; 0;</span><br><span class="line">  double sum_y &#x3D; 0;</span><br><span class="line">  for (const auto&amp; point : points) &#123;</span><br><span class="line">    sum_x +&#x3D; point.first;</span><br><span class="line">    sum_y +&#x3D; point.second;</span><br><span class="line">  &#125;</span><br><span class="line">  &#x2F;&#x2F; 求平均值</span><br><span class="line">  double x_avg &#x3D; sum_x &#x2F; points.size();</span><br><span class="line">  double y_avg &#x3D; sum_y &#x2F; points.size();</span><br><span class="line">  &#x2F;&#x2F; 根据公式:斜率 k &#x3D; sum (x_i-x_avg)(y_i-y_avg) &#x2F; sum (x_i-x_avg)^2</span><br><span class="line">  double numerator &#x3D; 0;</span><br><span class="line">  double denominator &#x3D; 0;</span><br><span class="line">  for (const auto&amp; point : points) &#123;</span><br><span class="line">    numerator +&#x3D; (point.first - x_avg) * (point.second - y_avg);</span><br><span class="line">    denominator +&#x3D; (point.first - x_avg) * (point.first - x_avg);</span><br><span class="line">  &#125;</span><br><span class="line">  if (denominator &#x3D;&#x3D; 0)</span><br><span class="line">    return absl::nullopt;</span><br><span class="line">  return numerator &#x2F; denominator;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h3 id="Detect函数"><a href="#Detect函数" class="headerlink" title="Detect函数"></a>Detect函数</h3><p>该函数主要根据延迟变化增长趋势计算当前网络状态，在WebRTC接收端基于延迟的带宽预测代码中，这部分属于过载检测器的内容，代码位于src\modules\remote_bitrate_estimator\overuse_detector.cc中，跟在卡尔曼滤波后面，我们不做讨论，我们讨论的全部是最新代码，全部在发送端进行带宽预测。</p>
-<p>在Detect函数内部，会根据前面计算得到的斜率得到一个调整后的斜率值：<code>modified_trend</code>：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">const double modified_trend &#x3D;</span><br><span class="line">    std::min(num_of_deltas_, kMinNumDeltas) * trend * threshold_gain_;</span><br></pre></td></tr></table></figure>
-
-<p>然后与一个动态阈值threshold_作对比，从而得到网络状态</p>
-<ul>
-<li><code>modified_trend &gt; threshold_</code>，表示overuse状态</li>
-<li><code>modified_trend &lt; -threshold_</code>，表示underuse状态</li>
-<li><code>-threshold_ &lt;= modified_trend &lt;= threshold_</code>，表示normal状态</li>
-</ul>
-<p>如下图所示，上下两条红色曲线表示动态阈值，蓝色曲线表示调整后的斜率值，阈值随时间动态变化，调整后的斜率值也动态变化，这样网络状态也动态变化。</p>
-<p><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20191129000307.png" alt="trendline"></p>
-<p>相关实现代码如下：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">if (modified_trend &gt; threshold_) &#123;</span><br><span class="line">  if (time_over_using_ &#x3D;&#x3D; -1) &#123;</span><br><span class="line">    time_over_using_ &#x3D; ts_delta &#x2F; 2;</span><br><span class="line">  &#125; else &#123;</span><br><span class="line">    time_over_using_ +&#x3D; ts_delta;</span><br><span class="line">  &#125;</span><br><span class="line">  overuse_counter_++;</span><br><span class="line">  if (time_over_using_ &gt; overusing_time_threshold_ &amp;&amp; overuse_counter_ &gt; 1) &#123;</span><br><span class="line">    if (trend &gt;&#x3D; prev_trend_) &#123;</span><br><span class="line">      time_over_using_ &#x3D; 0;</span><br><span class="line">      overuse_counter_ &#x3D; 0;</span><br><span class="line">      hypothesis_ &#x3D; BandwidthUsage::kBwOverusing;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125; else if (modified_trend &lt; -threshold_) &#123;</span><br><span class="line">  time_over_using_ &#x3D; -1;</span><br><span class="line">  overuse_counter_ &#x3D; 0;</span><br><span class="line">  hypothesis_ &#x3D; BandwidthUsage::kBwUnderusing;</span><br><span class="line">&#125; else &#123;</span><br><span class="line">  time_over_using_ &#x3D; -1;</span><br><span class="line">  overuse_counter_ &#x3D; 0;</span><br><span class="line">  hypothesis_ &#x3D; BandwidthUsage::kBwNormal;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这个阈值<code>threshold_</code>是动态调整的，代码实现在<code>UpdateThreshold</code>函数中。</p>
-<h3 id="UpdateThreshold函数"><a href="#UpdateThreshold函数" class="headerlink" title="UpdateThreshold函数"></a>UpdateThreshold函数</h3><p>阈值自适应调整为了改变算法对延迟梯度的敏感度。根据[1]主要有以下两方面原因：<br>1）延迟梯度是变化的，有时很大，有时很小，如果阈值是固定的，对于延迟梯度来说可能太多或者太小，这样就会出现不够敏感，无法检测到网络拥塞，或者过于敏感，导致一直检测为网络拥塞；<br>2）固定的阈值会导致与TCP（采用基于丢包的拥塞控制）的竞争中被饿死。</p>
-<p>这个阈值根据如下公式计算：<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20191128231443.png" alt="trendline"></p>
-<p>每处理一个新包组信息，就会更新一次阈值，其中<code>∆T</code>表示距离上次阈值更新经历的时间，<code>m(ti)</code>是前面说到的调整后的斜率值<code>modified_trend</code>。</p>
-<p><code>kγ(ti)</code>按如下定义：<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20191128231735.png" alt="trendline"></p>
-<p><code>kd</code>与<code>ku</code>分别决定阈值增加以及减小的速度。<br>具体实现代码如下：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">void TrendlineEstimator::UpdateThreshold(double modified_trend,</span><br><span class="line">                                         int64_t now_ms) &#123;</span><br><span class="line">  &#x2F;&#x2F; kγ(ti)值：kd，ku</span><br><span class="line">  const double k &#x3D; fabs(modified_trend) &lt; threshold_ ? k_down_ : k_up_;</span><br><span class="line">  const int64_t kMaxTimeDeltaMs &#x3D; 100;</span><br><span class="line">  &#x2F;&#x2F; 距离上一次阈值更新经过的时间∆T</span><br><span class="line">  int64_t time_delta_ms &#x3D; std::min(now_ms - last_update_ms_, kMaxTimeDeltaMs);</span><br><span class="line">  threshold_ +&#x3D; k * (fabs(modified_trend) - threshold_) * time_delta_ms;</span><br><span class="line">  threshold_ &#x3D; rtc::SafeClamp(threshold_, 6.f, 600.f);</span><br><span class="line">  last_update_ms_ &#x3D; now_ms;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本文主要介绍了如何根据延迟梯度得到网络状态，判断网络拥塞状况，并结合WebRTC相关源码进行分析。当我们得到当前网络拥塞状况后，就要对发送码率进行调节，以适应当前网络。后续文章我们将研究如何根据网络状态进行相应码率调整。</p>
-<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p>[1] Analysis and Design of the Google Congestion Control for Web Real-time Communication (WebRTC).<br>[2] A Google Congestion Control Algorithm for Real-Time Communication draft-ietf-rmcat-gcc-02.<a href="https://tools.ietf.org/html/draft-ietf-rmcat-gcc-02" target="_blank" rel="noopener">https://tools.ietf.org/html/draft-ietf-rmcat-gcc-02</a>.</p>
-
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/webrtc-research-trendlineestimator.html#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
