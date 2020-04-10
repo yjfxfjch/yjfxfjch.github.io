@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/avatar.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon32.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon16.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="/lib/pace/pace-theme-minimal.min.css">
+  <script src="/lib/pace/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.yjf.me","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="什么是声音介质振动在听觉系统中产生的反应。是一种波。因为是一种波，所以我们可以用频率、振幅等描述。 图1.蚊子翅膀振动产生声音传到人耳">
+<meta property="og:type" content="article">
+<meta property="og:title" content="音视频开发入门：音频基础">
+<meta property="og:url" content="https://www.yjf.me/av-develop-audio-basis.html">
+<meta property="og:site_name" content="YJF&#39;s Blog">
+<meta property="og:description" content="什么是声音介质振动在听觉系统中产生的反应。是一种波。因为是一种波，所以我们可以用频率、振幅等描述。 图1.蚊子翅膀振动产生声音传到人耳">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20190707125521.png">
+<meta property="og:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20160601103840.png">
+<meta property="og:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20160601104057.png">
+<meta property="og:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/db_calculate.png">
+<meta property="og:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/audioencode.png">
+<meta property="og:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20190825162925.png">
+<meta property="og:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/cdvoipsamplerate.png">
+<meta property="og:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/quantizationaudio.png">
+<meta property="article:published_time" content="2019-08-25T13:59:11.000Z">
+<meta property="article:modified_time" content="2020-04-10T14:12:07.315Z">
+<meta property="article:author" content="Jeff Young">
+<meta property="article:tag" content="音频">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20190707125521.png">
+
+<link rel="canonical" href="https://www.yjf.me/av-develop-audio-basis.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>音视频开发入门：音频基础 | YJF's Blog</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?1c47ee0bf1a669025dd51dc3a349388d";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">YJF's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">云淡风轻江月明</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>站点地图</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://www.yjf.me/av-develop-audio-basis.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Jeff Young">
+      <meta itemprop="description" content="云淡风轻江月明">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="YJF's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          音视频开发入门：音频基础
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-08-25 21:59:11" itemprop="dateCreated datePublished" datetime="2019-08-25T21:59:11+08:00">2019-08-25</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-04-10 22:12:07" itemprop="dateModified" datetime="2020-04-10T22:12:07+08:00">2020-04-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E9%9F%B3%E8%A7%86%E9%A2%91/" itemprop="url" rel="index"><span itemprop="name">音视频</span></a>
+                </span>
+            </span>
+
+          
+            <span id="/av-develop-audio-basis.html" class="post-meta-item leancloud_visitors" data-flag-title="音视频开发入门：音频基础" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/av-develop-audio-basis.html#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/av-develop-audio-basis.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="什么是声音"><a href="#什么是声音" class="headerlink" title="什么是声音"></a>什么是声音</h2><p>介质振动在听觉系统中产生的反应。是一种波。因为是一种波，所以我们可以用频率、振幅等描述。<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20190707125521.png" alt="audio"></p>
+<center>图1.蚊子翅膀振动产生声音传到人耳</center>
+<a id="more"></a>
+
+<h3 id="频率与振幅"><a href="#频率与振幅" class="headerlink" title="频率与振幅"></a>频率与振幅</h3><hr>
+<p>有两个基本的物理属性：<strong>频率</strong>与<strong>振幅</strong>。声音的振幅就是音量，也叫作响度，频率是单位时间振动次数，频率的高低就是指音调，频率用赫兹（Hz）作单位。<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20160601103840.png" alt="audio"></p>
+<center>图2.声音波形</center>
+
+<p>人耳只能听到20Hz到20kHz范围的声音。小于20HZ的叫次声波，大于20kHz的叫做超声波。超声波在现实中有很多应用，例如洗牙，测距，成像等。<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20160601104057.png" alt="audio"></p>
+<center>图3.声音按频率分类</center>
+
+<h3 id="分贝"><a href="#分贝" class="headerlink" title="分贝"></a>分贝</h3><hr>
+<p>因为人耳的特性，我们对声音的大小感知呈对数关系。所以我们通常用分贝描述声音大小，分贝（decibel）是量度两个相同单位之数量比例的单位，主要用于度量声音强度，常用dB表示。声学中，声音的强度定义为声压。计算分贝值时采用20微帕斯卡为参考值（通常被认为是人类的最少听觉响应值，大约是3米以外飞行的蚊子声音）。这一参考值是人类对声音能够感知的阈值下限。声压是场量，因此使用声压计算分贝时使用如下公式：<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/db_calculate.png" alt="audio"></p>
+<center>图4.分贝计算（Pref是标准参考声压值20微帕）</center>
+
+<p>由上述公式可知，当声音强度等于Pref时，db=0，也就是说0分贝时声音最小。</p>
+<h3 id="模拟音频与数字音频"><a href="#模拟音频与数字音频" class="headerlink" title="模拟音频与数字音频"></a>模拟音频与数字音频</h3><hr>
+<p><strong>模拟音频</strong>（Analogous Audio），用连续的电流或电压表示的音频信号，在时间和振幅上是连续。在过去记录声音记录的都是模拟音频，比如机械录音（以留声机、机械唱片为代表）、光学录音（以电影胶片为代表）、磁性录音（以磁带录音为代表）等模拟录音方式。</p>
+<p><strong>数字音频</strong>（Digital Audio），通过<strong>采样</strong>和<strong>量化</strong>技术获得的离散性（数字化）音频数据。计算机内部处理的是二进制数据，处理的都是数字音频，所以需要将模拟音频通过采样、量化转换成有限个数字表示的离散序列（即实现音频数字化）。</p>
+<p><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/audioencode.png" alt="audio"></p>
+<center>图5.典型的音频采集并转换成计算机处理的数字音频信号流程</center>
+
+<h3 id="采样频率"><a href="#采样频率" class="headerlink" title="采样频率"></a>采样频率</h3><hr>
+<p>声音以模拟波形的形式存在。数字音频片段以足够快的速率对模拟波的振幅进行采样，模仿波的固有频率，达到高度接近这种模拟波的效果。</p>
+<p><strong>采样频率</strong>（Sampling Rate），单位时间内采集的样本数，是采样周期的倒数，指两个采样之间的时间间隔。采样频率必须至少是信号中最大频率分量频率的两倍，否则就不能从信号采样中恢复原始信号，这其实就是著名的<a href="https://baike.baidu.com/item/%E9%A6%99%E5%86%9C%E9%87%87%E6%A0%B7%E5%AE%9A%E7%90%86" target="_blank" rel="noopener">香农采样定理</a>。例如，要表示人类听觉范围 (20-20000 Hz) 内的音频，数字音频格式必须至少每秒采样 40000 次（CD 音频使用 44100 Hz 的采样率，部分原因也在于此）。<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/20190825162925.png" alt="audio"></p>
+<center>图6.采样频率</center>
+
+<p>CD音质采样率为 44.1 kHz，其他常用采样率：22.05KHz，11.025KHz，一般网络和移动通信的音频采样率：8KHz。采样频率越高，声音质量越好。一般我们语音通信中（VOIP，例如微信，QQ语音聊天），我们对声音质量要求没那么高，能听清讲的什么即可，所以常采用8KHz采样率。<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/cdvoipsamplerate.png" alt="audio"></p>
+<center>图7.CD以及VOIP采样频率对比</center>
+
+<h3 id="量化"><a href="#量化" class="headerlink" title="量化"></a>量化</h3><hr>
+<p><strong>量化</strong>（Quantization ）是将经过采样得到的离散数据转换成二进制数的过程。量化的过程是先将整个幅度划分成有限个小幅度（量化阶距）的集合，把落入某个阶距内的样值归为一类，并赋予相同的量化值。</p>
+<p><strong>量化深度</strong>，表示一个样本的二进制的位数，即每个采样点用多少比特表示，在计算机中音频的量化深度一般为4、8、16、32位（bit）等。例如：量化深度为8bit时，每个采样点可以表示256个不同的量化值，而量化深度为16bit时,每个采样点可以表示65536个不同的量化值。量化深度的大小影响到声音的质量，显然，位数越多，量化后的波形越接近原始波形，声音的质量越高，而需要的存储空间也越多，位数越少，声音的质量越低，需要的存储空间越少。CD音质采用的是16 bits，移动通信 8bits。<br><img src="https://gitee.com/jianchihu/jchcdn/raw/master/img/2019/quantizationaudio.png" alt="audio"></p>
+<center>图8.量化信号</center>
+
+<h3 id="存储大小"><a href="#存储大小" class="headerlink" title="存储大小"></a>存储大小</h3><hr>
+<p><strong>声道数</strong>。记录声音时，如果每次生成一个声波数据，称为单声道；每次生成两个声波数据，称为双声道。使用双声道记录声音，能够在一定程度上再现声音的方位，反映人耳的听觉特性。</p>
+<p>数字音频存储大小。采样频率、量化深度数越高，声音质量也越高，保存这段声音所用的空间也就越大。立体声（双声道）存储大小是单声道文件的两倍。即：<br><code>文件大小（B）=采样频率（Hz）×录音时间（S）×（量化深度/8）×声道数（单声道为1，双声道为2）</code><br>如：录制1分钟采样频率为44.1KHz，量化深度为16位，立体声的声音（CD音质），文件大小为：<br><code>44.1×1000×60×(16/8)×2=10584000B≈10.09M</code></p>
+<p>可以看到数字音频信号如果不加压缩地直接进行传送或者存储，将会占用极大的带宽以及磁盘空间，这也是后面讲到的音频要进行压缩的原因。</p>
+<h2 id="声音编码压缩"><a href="#声音编码压缩" class="headerlink" title="声音编码压缩"></a>声音编码压缩</h2><h3 id="压缩基础"><a href="#压缩基础" class="headerlink" title="压缩基础"></a>压缩基础</h3><hr>
+<p>音频数据通常会进行压缩，以便更易于存储和传输。通过采样以及量化得到的数字音频信号中存在着大量冗余。数字音频压缩编码保证信号在听觉方面不产生失真的前提下，对音频数据信号进行尽可能大的压缩。数字音频压缩编码采取去除声音信号中冗余成分的方法来实现。所谓冗余成分指的是音频中不能被人耳感知到的信号，它们对确定声音的音色，音调等信息没有任何的帮助。冗余信号包含人耳听觉范围外的音频信号以及被掩蔽掉的音频信号等。例如，人耳所能察觉的声音信号的频率范围为20Hz～20KHz，范围外的其它频率人耳无法察觉，都可视为冗余信号。此外，根据人耳听觉的生理和心理声学现象，当一个强音信号与一个弱音信号同时存在时，弱音信号将被强音信号所掩蔽而听不见，这样弱音信号就可以视为冗余信号而不用传送。这就是人耳听觉的掩蔽效应。</p>
+<h3 id="有损压缩与无损压缩"><a href="#有损压缩与无损压缩" class="headerlink" title="有损压缩与无损压缩"></a>有损压缩与无损压缩</h3><hr>
+<p><strong>无损压缩</strong>。无损压缩虽然缩小音频的储存大小，但可以保留原始文件的所有信息。无损压缩是一个可逆的过程，利用信息冗余进行数据压缩，类似我们平时用的rar，zip等文件压缩。常见无损压缩格式有：APE，FLAC等。</p>
+<p><strong>有损压缩</strong>。有损压缩是一个不可逆的过程。有损数据压缩利用人类听觉特性，将不重要的声音信息舍弃，虽然有损压缩在理论上对原始文件造成损失，但这种损失不一定能被人耳分辨出来。常见有损压缩格式有:MP3，AAC，OGG等。</p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Jeff Young
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://www.yjf.me/av-develop-audio-basis.html" title="音视频开发入门：音频基础">https://www.yjf.me/av-develop-audio-basis.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E9%9F%B3%E9%A2%91/" rel="tag"># 音频</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/webrtc-build-vs2017.html" rel="prev" title="Windows平台WebRTC编译-VS2017">
+      <i class="fa fa-chevron-left"></i> Windows平台WebRTC编译-VS2017
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/webrtc-research-interarrival.html" rel="next" title="WebRTC研究：包组时间差计算-InterArrival">
+      WebRTC研究：包组时间差计算-InterArrival <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#什么是声音"><span class="nav-number">1.</span> <span class="nav-text">什么是声音</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#频率与振幅"><span class="nav-number">1.1.</span> <span class="nav-text">频率与振幅</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#分贝"><span class="nav-number">1.2.</span> <span class="nav-text">分贝</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#模拟音频与数字音频"><span class="nav-number">1.3.</span> <span class="nav-text">模拟音频与数字音频</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#采样频率"><span class="nav-number">1.4.</span> <span class="nav-text">采样频率</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#量化"><span class="nav-number">1.5.</span> <span class="nav-text">量化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#存储大小"><span class="nav-number">1.6.</span> <span class="nav-text">存储大小</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#声音编码压缩"><span class="nav-number">2.</span> <span class="nav-text">声音编码压缩</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#压缩基础"><span class="nav-number">2.1.</span> <span class="nav-text">压缩基础</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#有损压缩与无损压缩"><span class="nav-number">2.2.</span> <span class="nav-text">有损压缩与无损压缩</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Jeff Young"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Jeff Young</p>
+  <div class="site-description" itemprop="description">云淡风轻江月明</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:yjfxfjch@gmail.com" title="E-Mail → mailto:yjfxfjch@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Jeff Young</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+<script>
+  (function() {
+    function leancloudSelector(url) {
+      url = encodeURI(url);
+      return document.getElementById(url).querySelector('.leancloud-visitors-count');
+    }
+
+    function addCount(Counter) {
+      var visitors = document.querySelector('.leancloud_visitors');
+      var url = decodeURI(visitors.id);
+      var title = visitors.dataset.flagTitle;
+
+      Counter('get', '/classes/Counter?where=' + encodeURIComponent(JSON.stringify({ url })))
+        .then(response => response.json())
+        .then(({ results }) => {
+          if (results.length > 0) {
+            var counter = results[0];
+            leancloudSelector(url).innerText = counter.time + 1;
+            Counter('put', '/classes/Counter/' + counter.objectId, { time: { '__op': 'Increment', 'amount': 1 } })
+              .catch(error => {
+                console.error('Failed to save visitor count', error);
+              });
+          } else {
+              Counter('post', '/classes/Counter', { title, url, time: 1 })
+                .then(response => response.json())
+                .then(() => {
+                  leancloudSelector(url).innerText = 1;
+                })
+                .catch(error => {
+                  console.error('Failed to create', error);
+                });
+          }
+        })
+        .catch(error => {
+          console.error('LeanCloud Counter Error', error);
+        });
+    }
+
+    function showTime(Counter) {
+      var visitors = document.querySelectorAll('.leancloud_visitors');
+      var entries = [...visitors].map(element => {
+        return decodeURI(element.id);
+      });
+
+      Counter('get', '/classes/Counter?where=' + encodeURIComponent(JSON.stringify({ url: { '$in': entries } })))
+        .then(response => response.json())
+        .then(({ results }) => {
+          for (let url of entries) {
+            let target = results.find(item => item.url === url);
+            leancloudSelector(url).innerText = target ? target.time : 0;
+          }
+        })
+        .catch(error => {
+          console.error('LeanCloud Counter Error', error);
+        });
+    }
+
+    let { app_id, app_key, server_url } = {"enable":true,"app_id":"iHJhkdJSqewwu7pvVdXRiKJi-gzGzoHsz","app_key":"kXvE9J2FELbqkz5QUEWfGtwP","server_url":null,"security":false};
+    function fetchData(api_server) {
+      var Counter = (method, url, data) => {
+        return fetch(`${api_server}/1.1${url}`, {
+          method,
+          headers: {
+            'X-LC-Id'     : app_id,
+            'X-LC-Key'    : app_key,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data)
+        });
+      };
+      if (CONFIG.page.isPost) {
+        if (CONFIG.hostname !== location.hostname) return;
+        addCount(Counter);
+      } else if (document.querySelectorAll('.post-title-link').length >= 1) {
+        showTime(Counter);
+      }
+    }
+
+    let api_server = app_id.slice(-9) !== '-MdYXbMMI' ? server_url : `https://${app_id.slice(0, 8).toLowerCase()}.api.lncldglobal.com`;
+
+    if (api_server) {
+      fetchData(api_server);
+    } else {
+      fetch('https://app-router.leancloud.cn/2/route?appId=' + app_id)
+        .then(response => response.json())
+        .then(({ api_server }) => {
+          fetchData('https://' + api_server);
+        });
+    }
+  })();
+</script>
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : true,
+      notify     : false,
+      appId      : 'iHJhkdJSqewwu7pvVdXRiKJi-gzGzoHsz',
+      appKey     : 'kXvE9J2FELbqkz5QUEWfGtwP',
+      placeholder: "Just go go",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : false,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
